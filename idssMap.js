@@ -19,7 +19,7 @@ function idssMap() {
 	var mapquestOSM = L.tileLayer("http://{s}.tiles.mapbox.com/v3/am3081.h0po4e8k/{z}/{x}/{y}.png");
 	var defaultBasemap;
 	(basemap == "NiceGray") ? defaultBasemap =  mapquestOSM : defaultBasemap = topo;
-
+	
 	// Set basemap options
 	var basemapCollection = {
 		"Blue & Gray" : mapquestOSM,
@@ -32,15 +32,14 @@ function idssMap() {
 	map = L.map("map", {
 		center: [lat,lon],
 		zoom: zoom,
-    minZoom: 4,
-    maxZoom: 14,
+		minZoom: 4,
+		maxZoom: 14,
 		layers: mapquestOSM,
 		zoomControl: false,
 	});
 
 	// Lock map domain
 	(fixMap == "true") ? map.dragging.disable() : map.dragging.enable();
-
 
 	/*////////////////////////////////////////
 	// Radar mapping and related functions
@@ -79,7 +78,7 @@ function idssMap() {
 	};
 	// Add timestep indicator to map
 	info.addTo(map);
-	console.log("Valid times loaded");
+	
 	// Add radar layers to array for loop
 	var radarLayers = [];
 	for(var hour = 0; hour <= 10; hour++){
@@ -119,7 +118,6 @@ function idssMap() {
 			$('#timeSlider').val(i);          //  your code here
 			// Increment the counter
 			i++;
-			//console.log(i);
 			// Loop forever
 			if (i < 10) { loop(); } else { i = 0; loop(); }
 		}, 500)
@@ -196,6 +194,7 @@ function idssMap() {
 // Active fire callback
 ////////////////////////////////////////*/
 function activeFires(promisedData) {
+	// console.log(promisedData);
 	// List of dispatch offices
 	var disCent = { // Great Basin
 									IDBDC: ["Boise Dispatch",""],
@@ -203,12 +202,12 @@ function activeFires(promisedData) {
 									IDEIC: ["Idaho Falls Dispatch",""],
 									IDPAC: ["Payette National Forest Dispatch",""],
 									IDSCC: ["Shoshone Dispatch",""],
-									NVCNC: ["Winnemucca Dispatch",""],
-									NVECC: ["Ely Dispatch",""],
+									NVCNC: ["Winnemucca Dispatch","775-623-1555 (39#)"],
+									NVECC: ["Ely Dispatch","775-289-1925 (40#)"],
 									NVEIC: ["Elko Dispatch",""],
-									NVLIC: ["Las Vegas Dispatch",""],
+									NVLIC: ["Las Vegas Dispatch","702-515-5300 (41#)"],
 									NVSFC: ["Sierra Front Dispatch",""],
-									UTCDC: ["Color Country Dispatch",""],
+									UTCDC: ["Color Country Dispatch","435-865-4600 (42#)"],
 									UTMFC: ["Moab Dispatch",""],
 									UTNUC: ["Salt Lake City Dispatch",""],
 									UTRFC: ["Richfield Dispatch",""],
@@ -216,7 +215,7 @@ function activeFires(promisedData) {
 									WYTDC: ["Teton Dispatch",""],
 									// Southwest
 									AZFDC: ["Flagstaff Dispatch",""],
-									AZPDC: ["Prescott Dispatch",""],
+									AZPDC: ["Prescott Dispatch","928-777-5700 (43#)"],
 									AZPHC: ["Phoenix Dispatch",""],
 									AZSDC: ["Show Low Dispatch",""],
 									AZTDC: ["Tucson Dispatch",""],
@@ -233,8 +232,8 @@ function activeFires(promisedData) {
 									CALPCC: ["Los Padres Dispatch",""],
 									CAMVIC: ["Monte Vista Dispatch",""],
 									CAOSCC: ["Southern Cal Coord Center",""],
-									CAOVCC: ["Owens Valley Dispatch",""],
-									CASBCC: ["San Bernardino Dispatch",""],
+									CAOVCC: ["Owens Valley Dispatch","760-873-2405 (45#)"],
+									CASBCC: ["San Bernardino Dispatch","909-383-5652 (44#)"],
 									CASICC: ["Sierra Dispatch",""],
 									CASTCC: ["Sonora Dispatch",""],
 									// NorCal Ops
@@ -253,22 +252,24 @@ function activeFires(promisedData) {
 	// create custom icon
 	var fireIcon = L.icon({
 			iconUrl: 'fireIcon.png',
-			iconSize: [14, 14], // size of the icon
+			iconSize: [22, 22], // size of the icon
 	});
 
 	// Loop through ALL active fires
 	var numLocalFires = 0;
+	var radius = 16100; // Range ring radius...in meters
 	var fireLayer = [];
+	var fireRangeRings = [];
 	for (var i = 0; i < promisedData.features.length-1; i++) {
 		var fire = promisedData.features[i];
 		var lon = fire.geometry.coordinates[0];
 		var lat = fire.geometry.coordinates[1];
 		var incidentName = fire.properties.IncidentName;
 		var dispatchOffice = fire.properties.POODispatchCenterID;
-		var updateTime = fire.properties.ModifiedOnDateTime;
+		var updateTime = fire.properties.ModifiedOnDateTime_dt;
 		var originCounty = fire.properties.POOCounty;
 		var incidentType, containment, primaryFuel, activePersonel;
-		(fire.properties.IncidentTypeCategory       == "WF")   ? incidentType = "Wild Fire" : incidentType   = "Perscribed Burn";
+		(fire.properties.IncidentTypeCategory       == "WF")   ? incidentType = "Wildfire" : incidentType   = "Perscribed Burn";
 		(fire.properties.PercentContained           == null) ? containment    = "N/A"       : containment    = fire.properties.PercentContained + "%";
 		(fire.properties.PrimaryFuelModel           == null) ? primaryFuel    = "N/A"       : primaryFuel    = fire.properties.PrimaryFuelModel;
 		(fire.properties.TotalIncidentPersonnel     == null) ? activePersonel = "N/A"       : activePersonel = fire.properties.TotalIncidentPersonnel;
@@ -278,31 +279,39 @@ function activeFires(promisedData) {
 		dispatch.forEach(function(key) {
 			if (key == dispatchOffice) {
 				var dispatchFullname = disCent[key][0];
+				var tele = disCent[key][1];
 				fireLayer.push(L.marker([String(lat),String(lon)], {icon : fireIcon})
 						.bindPopup(
 								// header
 								"<table style='width:100%;'>" +
 								"<tr><td style='text-align:center;font-size:20px;color:#ed4d18;'>" + incidentName + "</td></tr>" +
-								"<tr><td style='text-align:center;font-size:14px;color:#ed4d18;'><b>" + dispatchFullname + "</b></td></tr>" +
+								"<tr><td style='text-align:center;font-size:14px;color:#ed4d18;'><b>" + dispatchFullname + ": " + tele + "</b></td></tr>" +
 								"<tr><td style='text-align:center;font-size:10px;color:#ed4d18'>[" + incidentType   + "]</td></tr>" +
 								"</table>" +
 								// content
 								"<table>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Updated:</b></em></td>        <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + convertTimetoDate(updateTime) + "</td></tr>" +
+								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Updated:</b></em></td>        <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + updateTime.slice(0,-3) + "z</td></tr>" +
+								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Lat/Lon:</b></em></td>      <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + lat + " / " + lon + "</td></tr>" +
 								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Active Personel:</b></em></td><td style='padding-left:5px;vertical-align:middle;font-size:15px;'>"  + activePersonel + "</td></tr>" +
 								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Containment:</b></em></td>    <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + containment + "</td></tr>" +
 								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Fuel Type:</b></em></td>      <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + primaryFuel + "</td></tr>" +
 								"</table>"
 						));
+				
+				// Create range ring
+				var latlng = L.latLng(lat, lon);
+				fireRangeRings.push(L.circle(latlng, radius, {color: '#ff7f00', fillOpacity: 0.05}));
 			} //if end
 		}); //foreach end
 	} //forLoop end
 
 	// Add active fires to map & layer contol
 	var fires = L.layerGroup(fireLayer);
+	var fireRings = L.layerGroup(fireRangeRings);
 	this.map.addLayer(fires);
 	this.layerControl.addOverlay(fires, "Active Fires");
-	console.log("active fire layer available")
+	this.layerControl.addOverlay(fireRings, "Range Rings: Fires");
+	//console.log("active fire layer available")
 }
 
 
@@ -319,7 +328,6 @@ function activeDSS(promisedIDSS) {
 
 	var data = [];
 	data = promisedIDSS.split('\n');
-	console.log("There are " + String(data.length-2)+ " active IDSS events.");
 
 	// Handle point itteration
 	var idss = [];
@@ -346,46 +354,9 @@ function activeDSS(promisedIDSS) {
 	this.map.addLayer(idssLayer);
 	this.map.addLayer(idssRings);
 	this.layerControl.addOverlay(idssLayer, "Active IDSS");
-	this.layerControl.addOverlay(idssRings, "IDSS Range Rings");
-	console.log("active IDSS points available")
+	this.layerControl.addOverlay(idssRings, "Range Rings: IDSS");
+	//console.log("active IDSS points available")
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// function getActiveDss(promisedIDSS) {
-//   $.ajax({url: "activeDSSpoints.csv",
-// 	success: function(result){
-//
-// 		// create custom icon
-//     var customIcon = L.icon({
-//         iconUrl: 'https://www.weather.gov/images/vef/icons/infoRed.png',
-//         iconSize: [30, 30], // size of the icon
-//         });
-//
-// 		var data = [];
-// 		data = result.split('\n');
-// 		console.log("There are " + String(data.length-2)+ " active IDSS events.");
-//
-// 		// Handle point itteration
-// 		var radius = 16100; // Range ring radius...in meters
-// 		for (var i = 1; i < data.length-1; i++) {
-// 			var bits = data[i].split(",");
-// 			L.marker([bits[0],bits[1]], {icon : customIcon})
-// 					.addTo(map)
-// 					.bindPopup("<span style='font-size:18px;color:#059efc;'><b>" + bits[2] + "</b></span>" +
-// 									 		"<table>" +
-// 									 		"<tr><td style='padding:10px;width:27%;font-size:13px;'><em><b> Duration: </b></em></td>"  + "<td>" + bits[3] + "</td></tr>" +
-// 									 		"<tr><td style='padding:10px;width:27%;font-size:13px;'><em><b> POC: </b></em></td>"       + "<td>" + bits[4] + "</td></tr>" +
-// 									 		"<tr><td style='padding:10px;width:27%;font-size:13px;'><em><b> Concerns: </b></em></td>"  + "<td>" + bits[5] + "</td></tr>" +
-// 									 		"</table>");
-// 			// Create range ring
-// 			var latlng = L.latLng(bits[0], bits[1]);
-// 			L.circle(latlng, radius, {color: 'red', fillOpacity: 0.05})
-// 					.addTo(map);
-//   	}
-//   }
-// 	});
-// }
 
 /*////////////////////////////////////////
 // Utility Functions.
