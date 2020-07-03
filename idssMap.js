@@ -34,18 +34,38 @@ function idssMap() {
 		zoom: zoom,
 		minZoom: 4,
 		maxZoom: 14,
-		layers: mapquestOSM,
+		layers: defaultBasemap,
 		zoomControl: false,
 	});
-
+	
 	// Lock map domain
 	(fixMap == "true") ? map.dragging.disable() : map.dragging.enable();
+	
+	/*
+	  Additional mapping features
+	*/
+
+	// Add zoom control button
+	map.addControl(new L.Control.ZoomMin());
+
+	// Add GeoSearch
+	new L.Control.GeoSearch({
+		provider: new L.GeoSearch.Provider.Esri()
+	}).addTo(map);
+
+	// Add Locate user
+	map.addControl(L.control.locate({
+		locateOptions: {
+            maxZoom: 10
+		}
+	}));
+	
+	
 
 	/*////////////////////////////////////////
 	// Radar mapping and related functions
-	////////////////////////////////////////*/
-
-	// Add Date Control
+	////////////////////////////////////////*/	
+	// Add time info for radar
 	var info = L.control();
 	info.onAdd = function (map) {
 		this._div = L.DomUtil.create('div', 'info');
@@ -79,7 +99,7 @@ function idssMap() {
 	// Add timestep indicator to map
 	info.addTo(map);
 	
-	// Add radar layers to array for loop
+		// Add radar layers to array for loop
 	var radarLayers = [];
 	for(var hour = 0; hour <= 10; hour++){
 		time = (50)-(hour*5);
@@ -134,42 +154,30 @@ function idssMap() {
 		radarLayers.map(function(layer){ layer.setOpacity(0)});
 		radarLayers[$(this).val()].setOpacity(0.5);
 	});
-
-
-	/*
-	  Additional mapping features
-	*/
-
-	// Add zoom control button
-	map.addControl(new L.Control.ZoomMin());
-
-	// Add GeoSearch
-	new L.Control.GeoSearch({
-		provider: new L.GeoSearch.Provider.Esri()
-	}).addTo(map);
-
-	// Add Locate user
-	map.addControl(L.control.locate({
-		locateOptions: {
-            maxZoom: 10
-		}
-	}));
-
 	// Add layer control
-  var layerControl = L.control.layers(basemapCollection).addTo(map);
-
+	var layerControl = L.control.layers(basemapCollection).addTo(map);
+	
 	// Add radar to layer control
 	var radar = L.layerGroup(radarLayers);
 	map.addLayer(radar);
 	layerControl.addOverlay(radar, "Radar Mosaic");
+	/*////////////////////////////////////////
+	// End of Radar
+	////////////////////////////////////////*/		
+	
+	var message = "Adding map layers";
+	addMapData(layerControl, message, "keep");
+	// return parameters used to add map data – refresh purposes
+	return [layerControl];
+}
 
-	// Call DSS point overlay on page load
-	// getActiveDss();
 
+function addMapData(layerControl, message, clear) {
+	console.log(message);
 	///////////////////////////////////
 	//  Add active fires
 	///////////////////////////////////
-  var params = {layerControl: layerControl, map: map};
+  var params = {layerControl: layerControl, map: map, clearData: clear};
 	$.ajax({
 			dataType: "json",
 			url: "https://opendata.arcgis.com/datasets/68637d248eb24d0d853342cba02d4af7_0.geojson",
@@ -270,9 +278,22 @@ function activeFires(promisedData) {
 		var originCounty = fire.properties.POOCounty;
 		var incidentType, containment, primaryFuel, activePersonel;
 		(fire.properties.IncidentTypeCategory       == "WF")   ? incidentType = "Wildfire" : incidentType   = "Perscribed Burn";
-		(fire.properties.PercentContained           == null) ? containment    = "N/A"       : containment    = fire.properties.PercentContained + "%";
-		(fire.properties.PrimaryFuelModel           == null) ? primaryFuel    = "N/A"       : primaryFuel    = fire.properties.PrimaryFuelModel;
-		(fire.properties.TotalIncidentPersonnel     == null) ? activePersonel = "N/A"       : activePersonel = fire.properties.TotalIncidentPersonnel;
+		
+		// Apply fire details as available
+		if (fire.properties.PercentContained != null) {	
+			var containment = "<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Containment:</b></em></td>"+
+							  "<td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + fire.properties.PercentContained + "%</td></tr>";
+		} else { var containment = ""; }
+		
+		if (fire.properties.TotalIncidentPersonnel != null) {	
+			var activePersonel = "<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Active Personel:</b></em></td>"+
+							  "<td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + fire.properties.TotalIncidentPersonnel + "</td></tr>";
+		} else { var activePersonel = ""; }
+		
+		if (fire.properties.PrimaryFuelModel != null) {	
+			var primaryFuel = "<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Fuel Type:</b></em></td>"+
+							  "<td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + fire.properties.PrimaryFuelModel + "</td></tr>";
+		} else { var primaryFuel = ""; }
 
 		// Define Local Dispatch by long name
 		var dispatch = Object.keys(disCent);
@@ -290,11 +311,9 @@ function activeFires(promisedData) {
 								"</table>" +
 								// content
 								"<table>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Updated:</b></em></td>        <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + updateTime.slice(0,-3) + "z</td></tr>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Lat/Lon:</b></em></td>      <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + lat + " / " + lon + "</td></tr>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Active Personel:</b></em></td><td style='padding-left:5px;vertical-align:middle;font-size:15px;'>"  + activePersonel + "</td></tr>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Containment:</b></em></td>    <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + containment + "</td></tr>" +
-								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Fuel Type:</b></em></td>      <td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + primaryFuel + "</td></tr>" +
+								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Updated:</b></em></td><td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + updateTime.slice(0,-3) + "z</td></tr>" +
+								"<tr><td style='vertical-align:middle;font-size:12px;'><em><b> Lat/Lon:</b></em></td><td style='padding-left:5px;vertical-align:middle;font-size:15px;'>" + lat + " / " + lon + "</td></tr>" +
+								activePersonel + containment + primaryFuel +
 								"</table>"
 						));
 				
@@ -304,11 +323,14 @@ function activeFires(promisedData) {
 			} //if end
 		}); //foreach end
 	} //forLoop end
-
+	
+	console.log(typeof(fires));
+	
 	// Add active fires to map & layer contol
 	var fires = L.layerGroup(fireLayer);
 	var fireRings = L.layerGroup(fireRangeRings);
 	this.map.addLayer(fires);
+	this.map.addLayer(fireRings);
 	this.layerControl.addOverlay(fires, "Active Fires");
 	this.layerControl.addOverlay(fireRings, "Range Rings: Fires");
 	//console.log("active fire layer available")
